@@ -2,7 +2,7 @@ package com.paul.knowledgeHub.controller;
 
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.paul.knowledgeHub.AuthCheck;
+import com.paul.knowledgeHub.annotation.AuthCheck;
 import com.paul.knowledgeHub.common.BaseResponse;
 import com.paul.knowledgeHub.common.DeleteRequest;
 import com.paul.knowledgeHub.common.ErrorCode;
