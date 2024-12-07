@@ -1,4 +1,4 @@
-package generator.domain;
+package com.paul.knowledgeHub.model.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -9,22 +9,27 @@ import java.util.Date;
 import lombok.Data;
 
 /**
- * 帖子点赞
- * @TableName post_thumb
+ * 题库题目
+ * @TableName question_bank_question
  */
-@TableName(value ="post_thumb")
+@TableName(value ="question_bank_question")
 @Data
-public class PostThumb implements Serializable {
+public class QuestionBankQuestion implements Serializable {
     /**
      * id
      */
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /**
-     * 帖子 id
+     * 题库 id
      */
-    private Long postId;
+    private Long questionBankId;
+
+    /**
+     * 题目 id
+     */
+    private Long questionId;
 
     /**
      * 创建用户 id

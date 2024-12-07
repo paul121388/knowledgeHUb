@@ -1,24 +1,22 @@
-package generator.domain;
+package com.paul.knowledgeHub.model.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
+
 import java.io.Serializable;
 import java.util.Date;
 import lombok.Data;
 
 /**
- * 帖子
- * @TableName post
+ * 题目
+ * @TableName question
  */
-@TableName(value ="post")
+@TableName(value ="question")
 @Data
-public class Post implements Serializable {
+public class Question implements Serializable {
     /**
      * id
      */
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /**
@@ -37,19 +35,19 @@ public class Post implements Serializable {
     private String tags;
 
     /**
-     * 点赞数
+     * 推荐答案
      */
-    private Integer thumbNum;
-
-    /**
-     * 收藏数
-     */
-    private Integer favourNum;
+    private String answer;
 
     /**
      * 创建用户 id
      */
     private Long userId;
+
+    /**
+     * 编辑时间
+     */
+    private Date editTime;
 
     /**
      * 创建时间
@@ -64,6 +62,7 @@ public class Post implements Serializable {
     /**
      * 是否删除
      */
+    @TableLogic
     private Integer isDelete;
 
     @TableField(exist = false)
