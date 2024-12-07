@@ -1,4 +1,4 @@
-package com.paul.knowledgeHub;
+package com.paul.knowledgeHub.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

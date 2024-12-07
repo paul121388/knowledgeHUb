@@ -1,6 +1,6 @@
 package com.paul.knowledgeHub.aop;
 
-import com.paul.knowledgeHub.AuthCheck;
+import com.paul.knowledgeHub.annotation.AuthCheck;
 import com.paul.knowledgeHub.common.ErrorCode;
 import com.paul.knowledgeHub.exception.BusinessException;
 import com.paul.knowledgeHub.model.entity.User;
