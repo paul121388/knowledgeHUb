@@ -28,10 +28,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
 import java.time.Year;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.paul.knowledgeHub.constant.UserConstant.USER_LOGIN_STATE;
@@ -298,7 +295,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public Map<LocalDate, Boolean> getUserSignInRecord(long userId, Integer year) {
+    public List<Integer> getUserSignInRecord(long userId, Integer year) {
         if (year == null) {
             year = LocalDate.now().getYear();
         }
@@ -306,17 +303,38 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         // 获取Redis的BitMap
         RBitSet signInBitSet = redissonClient.getBitSet(key);
-        // 构造返回结果
-        Map<LocalDate, Boolean> signInRecord = new LinkedHashMap<>();
+        // 性能优化1，将BitSet一次性加载到内存中，避免后续循环中多次向redis发送请求，
+        BitSet bitSet = signInBitSet.asBitSet();
+        // 优化前性能：平均响应时间230，吞吐量83
+        // 优化后性能：平均响应时间11，吞吐量1693
+
+//        // 构造返回结果
+//        Map<LocalDate, Boolean> signInRecord = new LinkedHashMap<>();
+//        // 获取该年的总天数
+//        int totalDays = Year.of(year).length();
+//        for (int dayOfYear = 1; dayOfYear <= totalDays; dayOfYear++) {
+//            // 获取当天是否签到，这里每一次get，都会向redis发送一次请求
+//            // 修改为读取内存的数据
+//            boolean hasRecord = bitSet.get(dayOfYear);
+//            // 将日期和签到状态存入Map
+//            LocalDate localDate = LocalDate.ofYearDay(year, dayOfYear);
+//            signInRecord.put(localDate, hasRecord);
+//        }
+//        return signInRecord;
+
+        // 性能优化2，只需要向前端返回那一天签到了，不需要返回全部的结果，减少传输占用的带宽
+        // 优化后性能：平均响应时间10，吞吐量1865
+        List<Integer> dayList = new ArrayList<>();
         // 获取该年的总天数
         int totalDays = Year.of(year).length();
         for (int dayOfYear = 1; dayOfYear <= totalDays; dayOfYear++) {
-            // 获取当天是否签到，这里每一次get，都会向redis发送一次请求
-            boolean hasRecord = signInBitSet.get(dayOfYear);
+            // 修改为读取内存的数据
+            boolean hasRecord = bitSet.get(dayOfYear);
             // 将日期和签到状态存入Map
-            LocalDate localDate = LocalDate.ofYearDay(year, dayOfYear);
-            signInRecord.put(localDate, hasRecord);
+            if(hasRecord){
+                dayList.add(dayOfYear);
+            }
         }
-        return signInRecord;
+        return dayList;
     }
 }

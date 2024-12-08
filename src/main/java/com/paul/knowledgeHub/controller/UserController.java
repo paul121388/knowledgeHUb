@@ -327,9 +327,9 @@ public class UserController {
      * @return 签到记录映射
      */
     @GetMapping("/get/sign_in")
-    public BaseResponse<Map<LocalDate, Boolean>> getUserSignInRecord(Integer year, HttpServletRequest request) {
+    public BaseResponse<List<Integer>> getUserSignInRecord(Integer year, HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
-        Map<LocalDate, Boolean> userSignInRecord = userService.getUserSignInRecord(loginUser.getId(), year);
+        List<Integer> userSignInRecord = userService.getUserSignInRecord(loginUser.getId(), year);
         return ResultUtils.success(userSignInRecord);
     }
 }
