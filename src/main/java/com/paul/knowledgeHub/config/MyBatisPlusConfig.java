@@ -9,8 +9,6 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * MyBatis Plus 配置
- *
- * @author https://github.com/lipaul
  */
 @Configuration
 @MapperScan("com.paul.knowledgeHub.mapper")
