@@ -6,6 +6,11 @@
       "sourceType": "com.paul.knowledgeHub.config.CosClientConfig"
     },
     {
+      "name": "spring.redis",
+      "type": "com.paul.knowledgeHub.config.RedissonConfig",
+      "sourceType": "com.paul.knowledgeHub.config.RedissonConfig"
+    },
+    {
       "name": "wx.open",
       "type": "com.paul.knowledgeHub.config.WxOpenConfig",
       "sourceType": "com.paul.knowledgeHub.config.WxOpenConfig"
@@ -45,6 +50,26 @@
       "name": "cos.client.secretKey",
       "type": "java.lang.String",
       "description": "Description for cos.client.secretKey."
+    },
+    {
+      "name": "spring.redis.database",
+      "type": "java.lang.Integer",
+      "sourceType": "com.paul.knowledgeHub.config.RedissonConfig"
+    },
+    {
+      "name": "spring.redis.host",
+      "type": "java.lang.String",
+      "sourceType": "com.paul.knowledgeHub.config.RedissonConfig"
+    },
+    {
+      "name": "spring.redis.password",
+      "type": "java.lang.String",
+      "sourceType": "com.paul.knowledgeHub.config.RedissonConfig"
+    },
+    {
+      "name": "spring.redis.port",
+      "type": "java.lang.Integer",
+      "sourceType": "com.paul.knowledgeHub.config.RedissonConfig"
     },
     {
       "name": "wx.open.app-id",
