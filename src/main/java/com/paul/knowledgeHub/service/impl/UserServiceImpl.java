@@ -27,8 +27,11 @@ import org.springframework.util.DigestUtils;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
+import java.time.Year;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.paul.knowledgeHub.constant.UserConstant.USER_LOGIN_STATE;
@@ -287,10 +290,33 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 获取当前日期是一年中的第几天，作为偏移量，从1开始计数
         int offset = date.getDayOfYear();
         // 检查当天是否签到
-        if(!signInBitSet.get(offset)){
+        if (!signInBitSet.get(offset)) {
             // 如果当天未签到，则设置当天的位为1
             return signInBitSet.set(offset);
         }
         return true;
+    }
+
+    @Override
+    public Map<LocalDate, Boolean> getUserSignInRecord(long userId, Integer year) {
+        if (year == null) {
+            year = LocalDate.now().getYear();
+        }
+        String key = RedisConstant.getUserSignInRedisKeyPrefix(year, userId);
+
+        // 获取Redis的BitMap
+        RBitSet signInBitSet = redissonClient.getBitSet(key);
+        // 构造返回结果
+        Map<LocalDate, Boolean> signInRecord = new LinkedHashMap<>();
+        // 获取该年的总天数
+        int totalDays = Year.of(year).length();
+        for (int dayOfYear = 1; dayOfYear <= totalDays; dayOfYear++) {
+            // 获取当天是否签到，这里每一次get，都会向redis发送一次请求
+            boolean hasRecord = signInBitSet.get(dayOfYear);
+            // 将日期和签到状态存入Map
+            LocalDate localDate = LocalDate.ofYearDay(year, dayOfYear);
+            signInRecord.put(localDate, hasRecord);
+        }
+        return signInRecord;
     }
 }

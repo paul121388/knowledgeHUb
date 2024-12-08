@@ -9,7 +9,9 @@ import com.paul.knowledgeHub.model.vo.UserVO;
 import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
 
 import javax.servlet.http.HttpServletRequest;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 用户服务
@@ -122,5 +124,13 @@ public interface UserService extends IService<User> {
      * @return
      */
     boolean addUserSignIn(long userId);
+
+    /**
+     * 获取用户签到记录
+     * @param userId
+     * @param year
+     * @return 签到记录映射
+     */
+    Map<LocalDate, Boolean> getUserSignInRecord(long userId, Integer year);
 
 }

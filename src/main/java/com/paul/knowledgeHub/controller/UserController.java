@@ -27,7 +27,9 @@ import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import static com.paul.knowledgeHub.service.impl.UserServiceImpl.SALT;
 
@@ -315,5 +317,19 @@ public class UserController {
         User loginUser = userService.getLoginUser(request);
         boolean result = userService.addUserSignIn(loginUser.getId());
         return ResultUtils.success(result);
+    }
+
+    /**
+     * 获取用户签到记录
+     *
+     * @param year
+     * @param request
+     * @return 签到记录映射
+     */
+    @GetMapping("/get/sign_in")
+    public BaseResponse<Map<LocalDate, Boolean>> getUserSignInRecord(Integer year, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        Map<LocalDate, Boolean> userSignInRecord = userService.getUserSignInRecord(loginUser.getId(), year);
+        return ResultUtils.success(userSignInRecord);
     }
 }
