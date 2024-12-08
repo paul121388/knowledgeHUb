@@ -324,16 +324,27 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         // 性能优化2，只需要向前端返回那一天签到了，不需要返回全部的结果，减少传输占用的带宽
         // 优化后性能：平均响应时间10，吞吐量1865
-        List<Integer> dayList = new ArrayList<>();
+//        List<Integer> dayList = new ArrayList<>();
         // 获取该年的总天数
-        int totalDays = Year.of(year).length();
-        for (int dayOfYear = 1; dayOfYear <= totalDays; dayOfYear++) {
-            // 修改为读取内存的数据
-            boolean hasRecord = bitSet.get(dayOfYear);
-            // 将日期和签到状态存入Map
-            if(hasRecord){
-                dayList.add(dayOfYear);
-            }
+//        int totalDays = Year.of(year).length();
+//        for (int dayOfYear = 1; dayOfYear <= totalDays; dayOfYear++) {
+//            // 修改为读取内存的数据
+//            boolean hasRecord = bitSet.get(dayOfYear);
+//            // 将日期和签到状态存入Map
+//            if(hasRecord){
+//                dayList.add(dayOfYear);
+//            }
+//        }
+
+
+        // 性能优化3，使用BitSet的nextSetBit方法，获取下一个为1的位，即下一个签到的日期，
+        // 该方法底层使用位运算，跳过无意义的循环检查，性能远高于自己写的for循环
+        // 优化后性能：平均响应时间9，吞吐量1979
+        List<Integer> dayList = new ArrayList<>();
+        int index = bitSet.nextSetBit(0);
+        while (index != -1) {
+            dayList.add(index);
+            index = bitSet.nextSetBit(index + 1);
         }
         return dayList;
     }
