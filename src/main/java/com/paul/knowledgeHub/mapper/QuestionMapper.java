@@ -1,7 +1,11 @@
 package com.paul.knowledgeHub.mapper;
 
+import com.paul.knowledgeHub.model.entity.Post;
 import com.paul.knowledgeHub.model.entity.Question;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+
+import java.util.Date;
+import java.util.List;
 
 /**
 * @author 22653
@@ -10,7 +14,10 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 * @Entity com.paul.knowledgeHub.model.entity.Question
 */
 public interface QuestionMapper extends BaseMapper<Question> {
-
+    /**
+     * 查询帖子列表（包括已被删除的数据）
+     */
+    List<Question> listPostWithDelete(Date minUpdateTime);
 }
 
 

@@ -23,4 +23,10 @@
         editTime,createTime,updateTime,
         isDelete
     </sql>
+
+    <select id="listPostWithDelete" resultType="com.paul.knowledgeHub.model.entity.Question">
+        select *
+        from question
+        where updateTime >= #{minUpdateTime}
+    </select>
 </mapper>
