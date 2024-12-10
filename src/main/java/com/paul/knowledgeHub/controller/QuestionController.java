@@ -248,4 +248,28 @@ public class QuestionController {
     }
 
     // endregion
+
+    /**
+     * 分页获取Es的搜索结果
+     *
+     * @param questionQueryRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/search/page/vo")
+    public BaseResponse<Page<QuestionVO>> searchQuestionVOByPage(@RequestBody QuestionQueryRequest questionQueryRequest,
+                                                                 HttpServletRequest request) {
+        ThrowUtils.throwIf(questionQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        // 补充查询条件，只查询当前登录用户的数据
+        User loginUser = userService.getLoginUser(request);
+        questionQueryRequest.setUserId(loginUser.getId());
+
+        // 限制爬虫，每次不能超过20条数据
+        long size = questionQueryRequest.getPageSize();
+        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
+        // Es搜索
+        Page<Question> questionPage = questionService.searchFromEs(questionQueryRequest);
+        // 获取封装类
+        return ResultUtils.success(questionService.getQuestionVOPage(questionPage, request));
+    }
 }

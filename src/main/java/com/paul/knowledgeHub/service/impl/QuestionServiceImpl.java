@@ -6,14 +6,11 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.paul.knowledgeHub.annotation.AuthCheck;
-import com.paul.knowledgeHub.common.BaseResponse;
 import com.paul.knowledgeHub.common.ErrorCode;
-import com.paul.knowledgeHub.common.ResultUtils;
 import com.paul.knowledgeHub.constant.CommonConstant;
-import com.paul.knowledgeHub.constant.UserConstant;
 import com.paul.knowledgeHub.exception.ThrowUtils;
 import com.paul.knowledgeHub.mapper.QuestionMapper;
+import com.paul.knowledgeHub.model.dto.question.QuestionEsDTO;
 import com.paul.knowledgeHub.model.dto.question.QuestionQueryRequest;
 import com.paul.knowledgeHub.model.entity.Question;
 import com.paul.knowledgeHub.model.entity.QuestionBankQuestion;
@@ -27,23 +24,27 @@ import com.paul.knowledgeHub.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.sort.SortBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
  * 题目服务实现
- *
-
  */
 @Service
 @Slf4j
@@ -54,6 +55,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
 
     @Resource
     private QuestionBankQuestionService questionBankQuestionService;
+
+    @Resource
+    private ElasticsearchRestTemplate elasticsearchRestTemplate;
 
     /**
      * 校验数据
@@ -216,7 +220,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
                     .eq(QuestionBankQuestion::getQuestionBankId, questionBankId);
             List<QuestionBankQuestion> questionList = questionBankQuestionService.list(lambdaQueryWrapper);
             Set<Long> questionIdSet = questionList.stream().map(QuestionBankQuestion::getQuestionId).collect(Collectors.toSet());
-            if(CollUtil.isNotEmpty(questionIdSet)){
+            if (CollUtil.isNotEmpty(questionIdSet)) {
                 queryWrapper.in("id", questionIdSet);
             }
         }
@@ -224,6 +228,86 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         // 查询数据库
         Page<Question> questionPage = this.page(new Page<>(current, size), queryWrapper);
         return questionPage;
+    }
+
+    /**
+     * 从Es中搜索题目
+     *
+     * @param questionQueryRequest
+     * @return
+     */
+    @Override
+    public Page<Question> searchFromEs(QuestionQueryRequest questionQueryRequest) {
+        Long id = questionQueryRequest.getId();
+        Long notId = questionQueryRequest.getNotId();
+        String searchText = questionQueryRequest.getSearchText();
+        List<String> tags = questionQueryRequest.getTags();
+        Long questionBankId = questionQueryRequest.getQuestionBankId();
+        Long userId = questionQueryRequest.getUserId();
+
+        int current = questionQueryRequest.getCurrent();
+        int pageSize = questionQueryRequest.getPageSize();
+        String sortField = questionQueryRequest.getSortField();
+        String sortOrder = questionQueryRequest.getSortOrder();
+
+        // 构建查询条件
+        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+        // 根据条件过滤
+        boolQueryBuilder.filter(QueryBuilders.termQuery("isDelete", 0));
+        if (id != null) {
+            boolQueryBuilder.filter(QueryBuilders.termQuery("id", id));
+        }
+        if (notId != null) {
+            boolQueryBuilder.mustNot(QueryBuilders.termQuery("id", notId));
+        }
+        if (userId != null) {
+            boolQueryBuilder.filter(QueryBuilders.termQuery("userId", userId));
+        }
+        if (questionBankId != null) {
+            boolQueryBuilder.filter(QueryBuilders.termQuery("questionBankId", questionBankId));
+        }
+        // 包含所有标签
+        if (CollUtil.isNotEmpty(tags)) {
+            for (String tag : tags) {
+                boolQueryBuilder.filter(QueryBuilders.termQuery("tags", tag));
+            }
+        }
+        // 按关键词搜索，关键词会出现在title，answer和content中
+        if (StringUtils.isNotBlank(searchText)) {
+            boolQueryBuilder.should(QueryBuilders.matchQuery("title", searchText));
+            boolQueryBuilder.should(QueryBuilders.matchQuery("answer", searchText));
+            boolQueryBuilder.should(QueryBuilders.matchQuery("content", searchText));
+            // 有一个满足条件即可
+            boolQueryBuilder.minimumShouldMatch(1);
+        }
+        // 排序
+        SortBuilder<?> sortBuilder = SortBuilders.scoreSort();
+        if (StringUtils.isNotBlank(sortField)) {
+            sortBuilder = SortBuilders.fieldSort(sortField);
+            sortBuilder.order(CommonConstant.SORT_ORDER_ASC.equals(sortOrder) ? SortOrder.ASC : SortOrder.DESC);
+        }
+        // 分页
+        Pageable pageRequest = PageRequest.of(current, pageSize);
+        // 构造查询
+        NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+                .withQuery(boolQueryBuilder)
+                .withPageable(pageRequest)
+                .withSorts(sortBuilder)
+                .build();
+        SearchHits<QuestionEsDTO> searchHits = elasticsearchRestTemplate.search(searchQuery, QuestionEsDTO.class);
+        Page<Question> page = new Page<>();
+        page.setTotal(searchHits.getTotalHits());
+        // 返回队列
+        List<Question> resourceList = new ArrayList<>();
+        if (searchHits.hasSearchHits()) {
+            List<SearchHit<QuestionEsDTO>> searchHitList = searchHits.getSearchHits();
+            for(SearchHit<QuestionEsDTO> questionEsDTOSearchHit : searchHitList){
+                resourceList.add(QuestionEsDTO.dtoToObj(questionEsDTOSearchHit.getContent()));
+            }
+        }
+        page.setRecords(resourceList);
+
+        return page;
     }
 
 }
