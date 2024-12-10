@@ -14,10 +14,7 @@ import com.paul.knowledgeHub.common.ResultUtils;
 import com.paul.knowledgeHub.constant.UserConstant;
 import com.paul.knowledgeHub.exception.BusinessException;
 import com.paul.knowledgeHub.exception.ThrowUtils;
-import com.paul.knowledgeHub.model.dto.question.QuestionAddRequest;
-import com.paul.knowledgeHub.model.dto.question.QuestionEditRequest;
-import com.paul.knowledgeHub.model.dto.question.QuestionQueryRequest;
-import com.paul.knowledgeHub.model.dto.question.QuestionUpdateRequest;
+import com.paul.knowledgeHub.model.dto.question.*;
 import com.paul.knowledgeHub.model.entity.Question;
 import com.paul.knowledgeHub.model.entity.QuestionBankQuestion;
 import com.paul.knowledgeHub.model.entity.User;
@@ -271,5 +268,12 @@ public class QuestionController {
         Page<Question> questionPage = questionService.searchFromEs(questionQueryRequest);
         // 获取封装类
         return ResultUtils.success(questionService.getQuestionVOPage(questionPage, request));
+    }
+
+    @PostMapping("/delete/batch")
+    public BaseResponse<Boolean> batchDeleteQuestion(@RequestBody QuestionBatchDeleteRequest questionBatchDeleteRequest) {
+        ThrowUtils.throwIf(questionBatchDeleteRequest == null,ErrorCode.PARAMS_ERROR);
+        questionService.batchDeleteQuestions(questionBatchDeleteRequest.getQuestionIdList());
+        return ResultUtils.success(true);
     }
 }

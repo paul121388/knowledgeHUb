@@ -2,3 +2,4 @@
 /sql/
 /Dockerfile
 /doc/
+/src/main/resources/__application.yml

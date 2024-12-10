@@ -3,16 +3,16 @@ package com.paul.knowledgeHub.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.paul.knowledgeHub.model.dto.question.QuestionBatchDeleteRequest;
 import com.paul.knowledgeHub.model.dto.question.QuestionQueryRequest;
 import com.paul.knowledgeHub.model.entity.Question;
 import com.paul.knowledgeHub.model.vo.QuestionVO;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * 题目服务
- *
-
  */
 public interface QuestionService extends IService<Question> {
 
@@ -20,7 +20,7 @@ public interface QuestionService extends IService<Question> {
      * 校验数据
      *
      * @param question
-     * @param add 对创建的数据进行校验
+     * @param add      对创建的数据进行校验
      */
     void validQuestion(Question question, boolean add);
 
@@ -31,7 +31,7 @@ public interface QuestionService extends IService<Question> {
      * @return
      */
     QueryWrapper<Question> getQueryWrapper(QuestionQueryRequest questionQueryRequest);
-    
+
     /**
      * 获取题目封装
      *
@@ -60,8 +60,16 @@ public interface QuestionService extends IService<Question> {
 
     /**
      * 从Es中搜索题目
+     *
      * @param questionQueryRequest
      * @return
      */
     Page<Question> searchFromEs(QuestionQueryRequest questionQueryRequest);
+
+    /**
+     * 批量删除题目
+     *
+     * @param questionIdList
+     */
+    void batchDeleteQuestions(List<Long> questionIdList);
 }
