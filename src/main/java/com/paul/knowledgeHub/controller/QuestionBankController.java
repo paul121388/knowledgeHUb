@@ -23,6 +23,7 @@ import com.paul.knowledgeHub.service.QuestionService;
 import com.paul.knowledgeHub.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -44,7 +45,7 @@ public class QuestionBankController {
     @Resource
     private UserService userService;
 
-    @Resource
+    @Autowired
     private QuestionService questionService;
 
     // region 增删改查

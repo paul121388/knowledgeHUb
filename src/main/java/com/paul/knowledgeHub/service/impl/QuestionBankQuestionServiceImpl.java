@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.paul.knowledgeHub.common.ErrorCode;
 import com.paul.knowledgeHub.constant.CommonConstant;
+import com.paul.knowledgeHub.exception.BusinessException;
 import com.paul.knowledgeHub.exception.ThrowUtils;
 import com.paul.knowledgeHub.mapper.QuestionBankQuestionMapper;
 import com.paul.knowledgeHub.model.dto.questionBankQuestion.QuestionBankQuestionQueryRequest;
@@ -23,7 +24,9 @@ import com.paul.knowledgeHub.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -42,6 +45,10 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
 
     @Resource
     private UserService userService;
+
+    @Resource
+    @Lazy
+    private QuestionService questionService;
 
 //    @Autowired
 //    private QuestionService questionService;
@@ -191,6 +198,44 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
 
         questionBankQuestionVOPage.setRecords(questionBankQuestionVOList);
         return questionBankQuestionVOPage;
+    }
+
+    /**
+     * 批量添加题目到题库
+     * @param questionIdList
+     * @param bankId
+     * @param LoginUser
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchAddQuestionToBank(List<Long> questionIdList, Long bankId, User LoginUser) {
+        // 参数校验
+        ThrowUtils.throwIf(CollUtil.isEmpty(questionIdList), ErrorCode.PARAMS_ERROR,"题目列表为空");
+        ThrowUtils.throwIf(bankId == null || bankId <= 0, ErrorCode.PARAMS_ERROR,"题库id为空");
+        ThrowUtils.throwIf(LoginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+
+        // 检查题目id是否存在
+        List<Question> questionList = questionService.listByIds(questionIdList);
+        // 取出合法的题目id
+        List<Long> vaildQuestionList = questionList.stream()
+                .map(Question::getId)
+                .collect(Collectors.toList());
+
+        // 检查题库id是否存在
+        QuestionBank questionBank = questionBankService.getById(bankId);
+        ThrowUtils.throwIf(questionBank == null, ErrorCode.NOT_FOUND_ERROR,"题库不存在");
+
+        // 循环插入
+        for (Long questionId : vaildQuestionList) {
+            QuestionBankQuestion questionBankQuestion = new QuestionBankQuestion();
+            questionBankQuestion.setQuestionId(questionId);
+            questionBankQuestion.setQuestionBankId(bankId);
+            questionBankQuestion.setUserId(LoginUser.getId());
+            boolean result = this.save(questionBankQuestion);
+            if (!result) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "添加题目到题库失败");
+            }
+        }
     }
 
 }
