@@ -1,7 +1,9 @@
 package com.paul.knowledgeHub.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.paul.knowledgeHub.common.ErrorCode;
@@ -234,6 +236,36 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
             boolean result = this.save(questionBankQuestion);
             if (!result) {
                 throw new BusinessException(ErrorCode.OPERATION_ERROR, "添加题目到题库失败");
+            }
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchRemoveQuestionFromBank(List<Long> questionIdList, Long bankId) {
+        // 参数校验
+        ThrowUtils.throwIf(CollUtil.isEmpty(questionIdList), ErrorCode.PARAMS_ERROR,"题目列表为空");
+        ThrowUtils.throwIf(bankId == null || bankId <= 0, ErrorCode.PARAMS_ERROR,"题库id为空");
+
+//        // 检查题目id是否存在
+//        List<Question> questionList = questionService.listByIds(questionIdList);
+//        // 取出合法的题目id
+//        List<Long> vaildQuestionList = questionList.stream()
+//                .map(Question::getId)
+//                .collect(Collectors.toList());
+//
+//        // 检查题库id是否存在
+//        QuestionBank questionBank = questionBankService.getById(bankId);
+//        ThrowUtils.throwIf(questionBank == null, ErrorCode.NOT_FOUND_ERROR,"题库不存在");
+
+        // 循环插入
+        for (Long questionId : questionIdList) {
+            LambdaQueryWrapper<QuestionBankQuestion> lambdaQueryWrapper = Wrappers.lambdaQuery(QuestionBankQuestion.class)
+                    .eq(QuestionBankQuestion::getQuestionId, questionId)
+                    .eq(QuestionBankQuestion::getQuestionBankId, bankId);
+            boolean result = this.remove(lambdaQueryWrapper);
+            if (!result) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "从题库中移除题目失败");
             }
         }
     }

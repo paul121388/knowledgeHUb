@@ -218,7 +218,7 @@ public class QuestionBankQuestionController {
      * @param questionBankQuestionBatchAddRequest
      * @param request
      */
-    @PostMapping("/batch/add")
+    @PostMapping("/add/batch")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> batchAddQuestionToBank(
             @RequestBody QuestionBankQuestionBatchAddRequest questionBankQuestionBatchAddRequest,
@@ -229,6 +229,23 @@ public class QuestionBankQuestionController {
         List<Long> questionIdList = questionBankQuestionBatchAddRequest.getQuestionIdList();
         Long questionBankId = questionBankQuestionBatchAddRequest.getQuestionBankId();
         questionBankQuestionService.batchAddQuestionToBank(questionIdList, questionBankId, loginUser);
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 批量添加题目到题库
+     *
+     * @param questionBankQuestionBatchAddRequest
+     */
+    @PostMapping("/remove/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> batchRemoveQuestionTFromBank(
+            @RequestBody QuestionBankQuestionBatchRemoveRequest questionBankQuestionBatchAddRequest) {
+        // 参数校验
+        ThrowUtils.throwIf(questionBankQuestionBatchAddRequest == null, ErrorCode.PARAMS_ERROR);
+        List<Long> questionIdList = questionBankQuestionBatchAddRequest.getQuestionIdList();
+        Long questionBankId = questionBankQuestionBatchAddRequest.getQuestionBankId();
+        questionBankQuestionService.batchRemoveQuestionFromBank(questionIdList, questionBankId);
         return ResultUtils.success(true);
     }
 }
