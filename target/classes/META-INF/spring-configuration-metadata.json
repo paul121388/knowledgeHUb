@@ -6,6 +6,11 @@
       "sourceType": "com.paul.knowledgeHub.config.CosClientConfig"
     },
     {
+      "name": "hotkey",
+      "type": "com.paul.knowledgeHub.config.HotKeyConfig",
+      "sourceType": "com.paul.knowledgeHub.config.HotKeyConfig"
+    },
+    {
       "name": "spring.redis",
       "type": "com.paul.knowledgeHub.config.RedissonConfig",
       "sourceType": "com.paul.knowledgeHub.config.RedissonConfig"
@@ -50,6 +55,26 @@
       "name": "cos.client.secretKey",
       "type": "java.lang.String",
       "description": "Description for cos.client.secretKey."
+    },
+    {
+      "name": "hotkey.app-name",
+      "type": "java.lang.String",
+      "sourceType": "com.paul.knowledgeHub.config.HotKeyConfig"
+    },
+    {
+      "name": "hotkey.caffeine-size",
+      "type": "java.lang.Integer",
+      "sourceType": "com.paul.knowledgeHub.config.HotKeyConfig"
+    },
+    {
+      "name": "hotkey.etcd-server",
+      "type": "java.lang.String",
+      "sourceType": "com.paul.knowledgeHub.config.HotKeyConfig"
+    },
+    {
+      "name": "hotkey.push-period",
+      "type": "java.lang.Long",
+      "sourceType": "com.paul.knowledgeHub.config.HotKeyConfig"
     },
     {
       "name": "spring.redis.database",

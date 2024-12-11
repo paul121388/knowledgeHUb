@@ -1,6 +1,7 @@
 package com.paul.knowledgeHub.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jd.platform.hotkey.client.callback.JdHotKeyStore;
 import com.paul.knowledgeHub.annotation.AuthCheck;
 import com.paul.knowledgeHub.common.BaseResponse;
 import com.paul.knowledgeHub.common.DeleteRequest;
@@ -144,6 +145,22 @@ public class QuestionBankController {
 
         Long id = questionBankQueryRequest.getId();
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+
+        // 生成key
+        String key = "bank_detail_"+id;
+
+        // 上报key并判断是否为热key
+        if(JdHotKeyStore.isHotKey(key)){
+            // 是，从缓存获取值
+            Object cacheQuestionBankVO = JdHotKeyStore.get(key);
+            // 缓存有值，直接从缓存取值并返回
+            if(cacheQuestionBankVO != null){
+                return ResultUtils.success((QuestionBankVO) cacheQuestionBankVO);
+            }
+        }
+
+
+
         // 查询数据库
         QuestionBank questionBank = questionBankService.getById(id);
         ThrowUtils.throwIf(questionBank == null, ErrorCode.NOT_FOUND_ERROR);
