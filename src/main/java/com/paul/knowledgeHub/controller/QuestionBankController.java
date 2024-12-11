@@ -174,6 +174,8 @@ public class QuestionBankController {
             Page<Question> questionPage = questionService.listQuestionByPage(questionQueryRequest);
             questionBankVO.setQuestionPage(questionPage);
         }
+
+        JdHotKeyStore.smartSet(key, questionBankVO);
         // 获取封装类
         return ResultUtils.success(questionBankVO);
     }
