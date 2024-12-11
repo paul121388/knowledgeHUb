@@ -30,14 +30,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 
@@ -55,7 +61,7 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
     @Lazy
     private QuestionService questionService;
 
-//    @Autowired
+    //    @Autowired
 //    private QuestionService questionService;
 //
     @Resource
@@ -83,7 +89,6 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
 //            QuestionBank questionBank = questionBankService.getById(questionBankId);
 //            ThrowUtils.throwIf(questionBank == null, ErrorCode.NOT_FOUND_ERROR,"题库不存在");
 //        }
-
 
 
 //        // todo 从对象中取值
@@ -207,35 +212,56 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
 
     /**
      * 批量添加题目到题库
+     *
      * @param questionIdList
      * @param bankId
      * @param LoginUser
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Async
     public void batchAddQuestionToBank(List<Long> questionIdList, Long bankId, User LoginUser) {
         // 参数校验
-        ThrowUtils.throwIf(CollUtil.isEmpty(questionIdList), ErrorCode.PARAMS_ERROR,"题目列表为空");
-        ThrowUtils.throwIf(bankId == null || bankId <= 0, ErrorCode.PARAMS_ERROR,"题库id为空");
+        ThrowUtils.throwIf(CollUtil.isEmpty(questionIdList), ErrorCode.PARAMS_ERROR, "题目列表为空");
+        ThrowUtils.throwIf(bankId == null || bankId <= 0, ErrorCode.PARAMS_ERROR, "题库id为空");
         ThrowUtils.throwIf(LoginUser == null, ErrorCode.NOT_LOGIN_ERROR);
 
-        // 检查题目id是否存在
-        List<Question> questionList = questionService.listByIds(questionIdList);
+        // 检查题目id是否存在，优化sql查询
+        LambdaQueryWrapper<Question> questionLambdaQueryWrapper = Wrappers.lambdaQuery(Question.class)
+                .select(Question::getId)
+                .in(Question::getId, questionIdList);
+
         // 取出合法的题目id
-        List<Long> vaildQuestionList = questionList.stream()
-                .map(Question::getId)
-                .collect(Collectors.toList());
-        // 检查哪些题目不在题库中，避免重复插入，首先查已经存在于题库中的题目id
+        List<Long> vaildQuestionList = questionService.listObjs(questionLambdaQueryWrapper, obj -> (Long) obj);
+        ThrowUtils.throwIf(CollUtil.isEmpty(vaildQuestionList), ErrorCode.NOT_FOUND_ERROR, "题目id列表不存在");
+
+        // 检查哪些题目不在题库中，避免重复插入，
+        // 首先查已经存在于题库中的题目id
         LambdaQueryWrapper<QuestionBankQuestion> lambdaQueryWrapper = Wrappers.lambdaQuery(QuestionBankQuestion.class)
                 .eq(QuestionBankQuestion::getQuestionBankId, bankId)
-                .in(QuestionBankQuestion::getQuestionId, vaildQuestionList);
+                .notIn(QuestionBankQuestion::getQuestionId, vaildQuestionList);
         List<QuestionBankQuestion> existQuestionIdList = this.list(lambdaQueryWrapper);
 
         // 排除已经存在在题库中的题目id
         vaildQuestionList = vaildQuestionList.stream().filter(questionId -> {
             return !existQuestionIdList.contains(questionId);
         }).collect(Collectors.toList());
-        ThrowUtils.throwIf(CollUtil.isEmpty(vaildQuestionList), ErrorCode.NOT_FOUND_ERROR,"所有题目已经在题库中");
+        ThrowUtils.throwIf(CollUtil.isEmpty(vaildQuestionList), ErrorCode.NOT_FOUND_ERROR, "所有题目已经在题库中");
+
+        // 检查题库id是否存在
+        QuestionBank questionBank = questionBankService.getById(bankId);
+        ThrowUtils.throwIf(questionBank == null, ErrorCode.NOT_FOUND_ERROR, "题库不存在");
+
+        List<CompletableFuture<Void>> futureList = new ArrayList<>();
+        // 自定义线程池，用于异步提交任务
+        ThreadPoolExecutor customExecutor = new ThreadPoolExecutor(
+                20,
+                50,
+                60L,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(1000),
+                new ThreadPoolExecutor.CallerRunsPolicy()
+        );
+
 
         // 提前校验题目，再循环插入
         int batchSize = 1000;
@@ -250,13 +276,19 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
                 return questionBankQuestion;
             }).collect(Collectors.toList());
 
-            QuestionBankQuestionService questionBankQuestionService = (QuestionBankQuestionServiceImpl)AopContext.currentProxy();
-            questionBankQuestionService.batchAddQuestionToBankInner(questionBankQuestions);
+            QuestionBankQuestionService questionBankQuestionService = (QuestionBankQuestionServiceImpl) AopContext.currentProxy();
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                questionBankQuestionService.batchAddQuestionToBankInner(questionBankQuestions);
+            }, customExecutor);
+            futureList.add(future);
         }
+        CompletableFuture.allOf(futureList.toArray(new CompletableFuture[0])).join();
+        customExecutor.shutdown();
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void batchAddQuestionToBankInner(List<QuestionBankQuestion> questionBankQuestionList){
+    @Override
+    public void batchAddQuestionToBankInner(List<QuestionBankQuestion> questionBankQuestionList) {
 //        for(QuestionBankQuestion questionBankQuestion : questionBankQuestionList){
 //            Long questionId = questionBankQuestion.getQuestionId();
 //            Long questionBankId = questionBankQuestion.getQuestionBankId();
@@ -275,16 +307,16 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
 //            }
 //        }
         // 修改为批量插入
-        try{
+        try {
             boolean result = this.saveBatch(questionBankQuestionList);
             ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "向题库添加题目失败");
-        }catch (DataIntegrityViolationException e){
+        } catch (DataIntegrityViolationException e) {
             log.error("数据库唯一键冲突或违反其他完整性约束，错误信息：{}", e.getMessage());
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "题目已存在与题库中");
-        }catch (DataAccessException e){
+        } catch (DataAccessException e) {
             log.error("数据库唯一键冲突或违反其他完整性约束，错误信息：{}", e.getMessage());
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "数据库操作失败");
-        }catch (Exception e){
+        } catch (Exception e) {
             log.error("向题库添加题目时，发生未知失败，错误信息：{}", e.getMessage());
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "添加题目到题库失败");
         }
@@ -295,8 +327,8 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
     @Transactional(rollbackFor = Exception.class)
     public void batchRemoveQuestionFromBank(List<Long> questionIdList, Long bankId) {
         // 参数校验
-        ThrowUtils.throwIf(CollUtil.isEmpty(questionIdList), ErrorCode.PARAMS_ERROR,"题目列表为空");
-        ThrowUtils.throwIf(bankId == null || bankId <= 0, ErrorCode.PARAMS_ERROR,"题库id为空");
+        ThrowUtils.throwIf(CollUtil.isEmpty(questionIdList), ErrorCode.PARAMS_ERROR, "题目列表为空");
+        ThrowUtils.throwIf(bankId == null || bankId <= 0, ErrorCode.PARAMS_ERROR, "题库id为空");
 
 //        // 检查题目id是否存在
 //        List<Question> questionList = questionService.listByIds(questionIdList);
