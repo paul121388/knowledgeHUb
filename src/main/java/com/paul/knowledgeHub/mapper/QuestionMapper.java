@@ -1,6 +1,5 @@
 package com.paul.knowledgeHub.mapper;
 
-import com.paul.knowledgeHub.model.entity.Post;
 import com.paul.knowledgeHub.model.entity.Question;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 

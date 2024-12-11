@@ -25,8 +25,11 @@ import com.paul.knowledgeHub.service.UserService;
 import com.paul.knowledgeHub.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -222,23 +225,57 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
         List<Long> vaildQuestionList = questionList.stream()
                 .map(Question::getId)
                 .collect(Collectors.toList());
+        // 检查哪些题目不在题库中，避免重复插入，首先查已经存在于题库中的题目id
+        LambdaQueryWrapper<QuestionBankQuestion> lambdaQueryWrapper = Wrappers.lambdaQuery(QuestionBankQuestion.class)
+                .eq(QuestionBankQuestion::getQuestionBankId, bankId)
+                .in(QuestionBankQuestion::getQuestionId, vaildQuestionList);
+        List<QuestionBankQuestion> existQuestionIdList = this.list(lambdaQueryWrapper);
 
-        // 检查题库id是否存在
-        QuestionBank questionBank = questionBankService.getById(bankId);
-        ThrowUtils.throwIf(questionBank == null, ErrorCode.NOT_FOUND_ERROR,"题库不存在");
+        // 排除已经存在在题库中的题目id
+        vaildQuestionList = vaildQuestionList.stream().filter(questionId -> {
+            return !existQuestionIdList.contains(questionId);
+        }).collect(Collectors.toList());
+        ThrowUtils.throwIf(CollUtil.isEmpty(vaildQuestionList), ErrorCode.NOT_FOUND_ERROR,"所有题目已经在题库中");
 
-        // 循环插入
-        for (Long questionId : vaildQuestionList) {
-            QuestionBankQuestion questionBankQuestion = new QuestionBankQuestion();
-            questionBankQuestion.setQuestionId(questionId);
-            questionBankQuestion.setQuestionBankId(bankId);
-            questionBankQuestion.setUserId(LoginUser.getId());
-            boolean result = this.save(questionBankQuestion);
-            if (!result) {
+        // 提前校验题目，再循环插入
+        int batchSize = 1000;
+        int totalQuestionListSize = vaildQuestionList.size();
+        for (int i = 0; i < totalQuestionListSize; i += batchSize) {
+            List<Long> subList = vaildQuestionList.subList(i, Math.min(i + batchSize, totalQuestionListSize));
+            List<QuestionBankQuestion> questionBankQuestions = subList.stream().map(questionId -> {
+                QuestionBankQuestion questionBankQuestion = new QuestionBankQuestion();
+                questionBankQuestion.setQuestionId(questionId);
+                questionBankQuestion.setQuestionBankId(bankId);
+                questionBankQuestion.setUserId(LoginUser.getId());
+                return questionBankQuestion;
+            }).collect(Collectors.toList());
+
+            QuestionBankQuestionService questionBankQuestionService = (QuestionBankQuestionServiceImpl)AopContext.currentProxy();
+            questionBankQuestionService.batchAddQuestionToBankInner(questionBankQuestions);
+        }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void batchAddQuestionToBankInner(List<QuestionBankQuestion> questionBankQuestionList){
+        for(QuestionBankQuestion questionBankQuestion : questionBankQuestionList){
+            Long questionId = questionBankQuestion.getQuestionId();
+            Long questionBankId = questionBankQuestion.getQuestionBankId();
+            try{
+                boolean result = this.save(questionBankQuestion);
+                ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "向题库添加题目失败");
+            }catch (DataIntegrityViolationException e){
+                log.error("数据库唯一键冲突或违反其他完整性约束，题目id:{}，题库id:{}", questionId, questionBankId);
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "题目已存在与题库中");
+            }catch (DataAccessException e){
+                log.error("数据库唯一键冲突或违反其他完整性约束，题目id:{}，题库id:{}", questionId, questionBankId);
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "数据库操作失败");
+            }catch (Exception e){
+                log.error("向题库添加题目时，发生未知失败，题目id:{}，题库id:{}", questionId, questionBankId);
                 throw new BusinessException(ErrorCode.OPERATION_ERROR, "添加题目到题库失败");
             }
         }
     }
+
 
     @Override
     @Transactional(rollbackFor = Exception.class)

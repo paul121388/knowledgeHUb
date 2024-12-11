@@ -66,4 +66,6 @@ public interface QuestionBankQuestionService extends IService<QuestionBankQuesti
      * @param bankId
      */
     void batchRemoveQuestionFromBank(List<Long> questionIdList, Long bankId);
+
+    void batchAddQuestionToBankInner(List<QuestionBankQuestion> questionBankQuestions);
 }
