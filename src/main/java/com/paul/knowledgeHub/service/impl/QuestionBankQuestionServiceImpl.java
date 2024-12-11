@@ -257,22 +257,36 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<QuestionBankQue
 
     @Transactional(rollbackFor = Exception.class)
     public void batchAddQuestionToBankInner(List<QuestionBankQuestion> questionBankQuestionList){
-        for(QuestionBankQuestion questionBankQuestion : questionBankQuestionList){
-            Long questionId = questionBankQuestion.getQuestionId();
-            Long questionBankId = questionBankQuestion.getQuestionBankId();
-            try{
-                boolean result = this.save(questionBankQuestion);
-                ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "向题库添加题目失败");
-            }catch (DataIntegrityViolationException e){
-                log.error("数据库唯一键冲突或违反其他完整性约束，题目id:{}，题库id:{}", questionId, questionBankId);
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "题目已存在与题库中");
-            }catch (DataAccessException e){
-                log.error("数据库唯一键冲突或违反其他完整性约束，题目id:{}，题库id:{}", questionId, questionBankId);
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "数据库操作失败");
-            }catch (Exception e){
-                log.error("向题库添加题目时，发生未知失败，题目id:{}，题库id:{}", questionId, questionBankId);
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "添加题目到题库失败");
-            }
+//        for(QuestionBankQuestion questionBankQuestion : questionBankQuestionList){
+//            Long questionId = questionBankQuestion.getQuestionId();
+//            Long questionBankId = questionBankQuestion.getQuestionBankId();
+//            try{
+//                boolean result = this.save(questionBankQuestion);
+//                ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "向题库添加题目失败");
+//            }catch (DataIntegrityViolationException e){
+//                log.error("数据库唯一键冲突或违反其他完整性约束，题目id:{}，题库id:{}", questionId, questionBankId);
+//                throw new BusinessException(ErrorCode.OPERATION_ERROR, "题目已存在与题库中");
+//            }catch (DataAccessException e){
+//                log.error("数据库唯一键冲突或违反其他完整性约束，题目id:{}，题库id:{}", questionId, questionBankId);
+//                throw new BusinessException(ErrorCode.OPERATION_ERROR, "数据库操作失败");
+//            }catch (Exception e){
+//                log.error("向题库添加题目时，发生未知失败，题目id:{}，题库id:{}", questionId, questionBankId);
+//                throw new BusinessException(ErrorCode.OPERATION_ERROR, "添加题目到题库失败");
+//            }
+//        }
+        // 修改为批量插入
+        try{
+            boolean result = this.saveBatch(questionBankQuestionList);
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "向题库添加题目失败");
+        }catch (DataIntegrityViolationException e){
+            log.error("数据库唯一键冲突或违反其他完整性约束，错误信息：{}", e.getMessage());
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "题目已存在与题库中");
+        }catch (DataAccessException e){
+            log.error("数据库唯一键冲突或违反其他完整性约束，错误信息：{}", e.getMessage());
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "数据库操作失败");
+        }catch (Exception e){
+            log.error("向题库添加题目时，发生未知失败，错误信息：{}", e.getMessage());
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "添加题目到题库失败");
         }
     }
 
