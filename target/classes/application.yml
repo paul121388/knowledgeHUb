@@ -96,8 +96,9 @@ spring:
     database: 1
     host: r-7xv7loxk2hxkr4tuthpd.redis.rds.aliyuncs.com
     port: 6379
-    timeout: 5000
-    password: Train12306
+    timeout: 10000
+    password: 215743knowledge!
+    username: knowledge
   # Elasticsearch 配置
   # todo 需替换配置，然后取消注释
   elasticsearch:

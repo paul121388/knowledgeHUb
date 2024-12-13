@@ -97,6 +97,11 @@
       "sourceType": "com.paul.knowledgeHub.config.RedissonConfig"
     },
     {
+      "name": "spring.redis.username",
+      "type": "java.lang.String",
+      "sourceType": "com.paul.knowledgeHub.config.RedissonConfig"
+    },
+    {
       "name": "wx.open.app-id",
       "type": "java.lang.String",
       "sourceType": "com.paul.knowledgeHub.config.WxOpenConfig"
