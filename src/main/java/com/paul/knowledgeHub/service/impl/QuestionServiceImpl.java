@@ -241,21 +241,22 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
      */
     @Override
     public Page<Question> searchFromEs(QuestionQueryRequest questionQueryRequest) {
+        // 获取参数
         Long id = questionQueryRequest.getId();
         Long notId = questionQueryRequest.getNotId();
         String searchText = questionQueryRequest.getSearchText();
         List<String> tags = questionQueryRequest.getTags();
         Long questionBankId = questionQueryRequest.getQuestionBankId();
         Long userId = questionQueryRequest.getUserId();
-
-        int current = questionQueryRequest.getCurrent();
+        // 注意，ES 的起始页为 0
+        int current = questionQueryRequest.getCurrent() - 1;
         int pageSize = questionQueryRequest.getPageSize();
         String sortField = questionQueryRequest.getSortField();
         String sortOrder = questionQueryRequest.getSortOrder();
 
-        // 构建查询条件
+        // 构造查询条件
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
-        // 根据条件过滤
+        // 过滤
         boolQueryBuilder.filter(QueryBuilders.termQuery("isDelete", 0));
         if (id != null) {
             boolQueryBuilder.filter(QueryBuilders.termQuery("id", id));
@@ -269,18 +270,17 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         if (questionBankId != null) {
             boolQueryBuilder.filter(QueryBuilders.termQuery("questionBankId", questionBankId));
         }
-        // 包含所有标签
+        // 必须包含所有标签
         if (CollUtil.isNotEmpty(tags)) {
             for (String tag : tags) {
                 boolQueryBuilder.filter(QueryBuilders.termQuery("tags", tag));
             }
         }
-        // 按关键词搜索，关键词会出现在title，answer和content中
+        // 按关键词检索
         if (StringUtils.isNotBlank(searchText)) {
             boolQueryBuilder.should(QueryBuilders.matchQuery("title", searchText));
-            boolQueryBuilder.should(QueryBuilders.matchQuery("answer", searchText));
             boolQueryBuilder.should(QueryBuilders.matchQuery("content", searchText));
-            // 有一个满足条件即可
+            boolQueryBuilder.should(QueryBuilders.matchQuery("answer", searchText));
             boolQueryBuilder.minimumShouldMatch(1);
         }
         // 排序
@@ -290,7 +290,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
             sortBuilder.order(CommonConstant.SORT_ORDER_ASC.equals(sortOrder) ? SortOrder.ASC : SortOrder.DESC);
         }
         // 分页
-        Pageable pageRequest = PageRequest.of(current, pageSize);
+        PageRequest pageRequest = PageRequest.of(current, pageSize);
         // 构造查询
         NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
                 .withQuery(boolQueryBuilder)
@@ -298,20 +298,20 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
                 .withSorts(sortBuilder)
                 .build();
         SearchHits<QuestionEsDTO> searchHits = elasticsearchRestTemplate.search(searchQuery, QuestionEsDTO.class);
+        // 复用 MySQL 的分页对象，封装返回结果
         Page<Question> page = new Page<>();
         page.setTotal(searchHits.getTotalHits());
-        // 返回队列
         List<Question> resourceList = new ArrayList<>();
         if (searchHits.hasSearchHits()) {
             List<SearchHit<QuestionEsDTO>> searchHitList = searchHits.getSearchHits();
-            for(SearchHit<QuestionEsDTO> questionEsDTOSearchHit : searchHitList){
+            for (SearchHit<QuestionEsDTO> questionEsDTOSearchHit : searchHitList) {
                 resourceList.add(QuestionEsDTO.dtoToObj(questionEsDTOSearchHit.getContent()));
             }
         }
         page.setRecords(resourceList);
-
         return page;
     }
+
 
     /**
      * 批量删除题目
