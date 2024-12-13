@@ -1,6 +1,7 @@
 package com.paul.knowledgeHub.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;

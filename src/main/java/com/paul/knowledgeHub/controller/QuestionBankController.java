@@ -1,5 +1,8 @@
 package com.paul.knowledgeHub.controller;
 
+import com.alibaba.csp.sentinel.annotation.SentinelResource;
+import com.alibaba.csp.sentinel.slots.block.BlockException;
+import com.alibaba.csp.sentinel.slots.block.degrade.DegradeException;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jd.platform.hotkey.client.callback.JdHotKeyStore;
 import com.paul.knowledgeHub.annotation.AuthCheck;
@@ -19,6 +22,7 @@ import com.paul.knowledgeHub.model.entity.Question;
 import com.paul.knowledgeHub.model.entity.QuestionBank;
 import com.paul.knowledgeHub.model.entity.User;
 import com.paul.knowledgeHub.model.vo.QuestionBankVO;
+import com.paul.knowledgeHub.sentinel.handleFallback;
 import com.paul.knowledgeHub.service.QuestionBankService;
 import com.paul.knowledgeHub.service.QuestionService;
 import com.paul.knowledgeHub.service.UserService;
@@ -205,6 +209,11 @@ public class QuestionBankController {
      * @return
      */
     @PostMapping("/list/page/vo")
+    @SentinelResource(value = "listQuestionBankVOByPage",
+            blockHandlerClass = {com.paul.knowledgeHub.sentinel.blockHandler.class},
+            blockHandler = "handleBlockException",
+            fallbackClass = {com.paul.knowledgeHub.sentinel.handleFallback.class},
+            fallback = "blockFallback")
     public BaseResponse<Page<QuestionBankVO>> listQuestionBankVOByPage(@RequestBody QuestionBankQueryRequest questionBankQueryRequest,
                                                                HttpServletRequest request) {
         long current = questionBankQueryRequest.getCurrent();
@@ -217,6 +226,26 @@ public class QuestionBankController {
         // 获取封装类
         return ResultUtils.success(questionBankService.getQuestionBankVOPage(questionBankPage, request));
     }
+
+//    public BaseResponse<Page<QuestionBankVO>> blockFallback(
+//            @RequestBody QuestionBankQueryRequest questionBankQueryRequest,
+//            HttpServletRequest request, Throwable ex) {
+//
+//        return ResultUtils.success(null);
+//    }
+//
+//    public BaseResponse<Page<QuestionBankVO>> handleBlockException(
+//            @RequestBody QuestionBankQueryRequest questionBankQueryRequest,
+//            HttpServletRequest request, BlockException ex) {
+//
+//        if (ex instanceof DegradeException) {
+//            return handleFallback.blockFallback(questionBankQueryRequest, request, ex);
+//        }
+//
+//        return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "系统繁忙，请稍后再试");
+//    }
+
+
 
     /**
      * 分页获取当前登录用户创建的题库列表
