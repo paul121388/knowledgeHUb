@@ -2,6 +2,12 @@ package com.paul.knowledgeHub.controller;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.json.JSONUtil;
+import com.alibaba.csp.sentinel.Entry;
+import com.alibaba.csp.sentinel.EntryType;
+import com.alibaba.csp.sentinel.SphU;
+import com.alibaba.csp.sentinel.Tracer;
+import com.alibaba.csp.sentinel.slots.block.BlockException;
+import com.alibaba.csp.sentinel.slots.block.degrade.DegradeException;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -15,9 +21,11 @@ import com.paul.knowledgeHub.constant.UserConstant;
 import com.paul.knowledgeHub.exception.BusinessException;
 import com.paul.knowledgeHub.exception.ThrowUtils;
 import com.paul.knowledgeHub.model.dto.question.*;
+import com.paul.knowledgeHub.model.dto.questionBank.QuestionBankQueryRequest;
 import com.paul.knowledgeHub.model.entity.Question;
 import com.paul.knowledgeHub.model.entity.QuestionBankQuestion;
 import com.paul.knowledgeHub.model.entity.User;
+import com.paul.knowledgeHub.model.vo.QuestionBankVO;
 import com.paul.knowledgeHub.model.vo.QuestionVO;
 import com.paul.knowledgeHub.service.QuestionBankQuestionService;
 import com.paul.knowledgeHub.service.QuestionService;
@@ -272,8 +280,61 @@ public class QuestionController {
 
     @PostMapping("/delete/batch")
     public BaseResponse<Boolean> batchDeleteQuestion(@RequestBody QuestionBatchDeleteRequest questionBatchDeleteRequest) {
-        ThrowUtils.throwIf(questionBatchDeleteRequest == null,ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(questionBatchDeleteRequest == null, ErrorCode.PARAMS_ERROR);
         questionService.batchDeleteQuestions(questionBatchDeleteRequest.getQuestionIdList());
         return ResultUtils.success(true);
+    }
+
+    /**
+     * 分页获取题目列表（封装类-限流版）
+     *
+     * @param questionQueryRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/list/page/vo/sentinel")
+    public BaseResponse<Page<QuestionVO>> listQuestionVOByPageSentinel(@RequestBody QuestionQueryRequest questionQueryRequest,
+                                                                       HttpServletRequest request) {
+        long current = questionQueryRequest.getCurrent();
+        long size = questionQueryRequest.getPageSize();
+        // 限制爬虫
+        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
+
+        // 热点参数是IP
+        String remoteAddr = request.getRemoteAddr();
+        Entry entry = null;
+        try {
+            // 定义资源名
+            entry = SphU.entry("listPageVoByPage", EntryType.IN, 1, remoteAddr);
+            // 需要保护的资源
+            // 查询数据库
+            Page<Question> questionPage = questionService.page(new Page<>(current, size),
+                    questionService.getQueryWrapper(questionQueryRequest));
+            // 获取封装类
+            return ResultUtils.success(questionService.getQuestionVOPage(questionPage, request));
+        } catch (Throwable e) {
+            // 捕获所有异常，首先判断是否位BlockException，不是，就是业务异常，需要手动上报
+            if(!BlockException.isBlockException(e)){
+                Tracer.trace(e);
+                return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "系统错误");
+            }
+            // 熔断以后的降级异常
+            if (e instanceof DegradeException) {
+                return blockFallback(questionQueryRequest, request, e);
+            }
+            // 限流操作
+            return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "请求过于频繁，请稍后重试");
+        } finally {
+            if (entry != null) {
+                entry.exit(1, remoteAddr);
+            }
+        }
+    }
+
+    public BaseResponse<Page<QuestionVO>> blockFallback(
+            @RequestBody QuestionQueryRequest questionQueryRequest,
+            HttpServletRequest request, Throwable ex) {
+
+        return ResultUtils.success(null);
     }
 }
